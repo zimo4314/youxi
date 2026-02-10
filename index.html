@@ -306,6 +306,7 @@
         <div class="prompt-text">请旋转手机至横屏模式以获得最佳游戏体验</div>
     </div>
     
+    <!-- SimplexNoise library for advanced terrain generation (available for future enhancements) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
@@ -639,7 +640,8 @@
         const joystickStick = document.getElementById('joystickStick');
         let joystickStartPos = { x: 0, y: 0 };
         
-        // Listen for touches on left half of screen
+        // Listen for touches on left half of screen for floating joystick
+        // Note: passive: false is required for preventDefault() to work and prevent page scrolling
         document.addEventListener('touchstart', handleTouchStart, { passive: false });
         document.addEventListener('touchmove', handleTouchMove, { passive: false });
         document.addEventListener('touchend', handleTouchEnd, { passive: false });
@@ -1568,7 +1570,10 @@
         
         // Check orientation on load and orientation change
         checkOrientation();
-        window.addEventListener('orientationchange', checkOrientation);
+        window.addEventListener('resize', checkOrientation);
+        if (screen.orientation) {
+            screen.orientation.addEventListener('change', checkOrientation);
+        }
         
         // Start game
         updateLives();
