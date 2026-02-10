@@ -266,6 +266,16 @@
     
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script>
+        // Game Constants
+        const GAME_CONSTANTS = {
+            SPIRAL_STONE_COUNT: 28,
+            CROCODILE_WAVE_COUNTS: [4, 7, 10],
+            PLAYER_SPEED_NORMAL: 8,
+            PLAYER_SPEED_CARRYING: 5,
+            STONE_SINK_TIME: 3000,
+            STONE_DISAPPEAR_INTERVAL: 1.5
+        };
+        
         // Game State
         const gameState = {
             currentLevel: 1,
@@ -653,7 +663,7 @@
             const data = gameState.levelData.level1;
             data.stones = [];
             
-            const stoneCount = 28;
+            const stoneCount = GAME_CONSTANTS.SPIRAL_STONE_COUNT;
             const spirals = 1.75;
             
             for (let i = 0; i < stoneCount; i++) {
@@ -890,7 +900,7 @@
             data.wave++;
             data.waveTimer = 2;
             
-            const counts = [4, 7, 10];
+            const counts = GAME_CONSTANTS.CROCODILE_WAVE_COUNTS;
             const count = counts[data.wave - 1];
             
             setTimeout(() => {
@@ -1109,7 +1119,7 @@
             data.startTime = Date.now();
             data.timeLimit = 25;
             
-            const stoneCount = 28;
+            const stoneCount = GAME_CONSTANTS.SPIRAL_STONE_COUNT;
             const spirals = 1.75;
             
             for (let i = 0; i < stoneCount; i++) {
@@ -1287,7 +1297,7 @@
                 moveZ += joystick.y;
             }
             
-            const speed = gameState.carryingPony ? 5 : 8;
+            const speed = gameState.carryingPony ? GAME_CONSTANTS.PLAYER_SPEED_CARRYING : GAME_CONSTANTS.PLAYER_SPEED_NORMAL;
             const moveLength = Math.sqrt(moveX * moveX + moveZ * moveZ);
             
             if (moveLength > 0) {
