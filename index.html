@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <title>拯救小马同学 - 6关冒险</title>
     <style>
         * {
@@ -14,6 +16,10 @@
             font-family: 'Microsoft YaHei', Arial, sans-serif;
             overflow: hidden;
             background: #000;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            user-select: none;
+            -webkit-user-select: none;
         }
         #gameCanvas {
             display: block;
@@ -140,12 +146,12 @@
         
         /* Virtual Joystick */
         #joystick {
-            position: absolute;
-            bottom: 30px;
-            left: 30px;
+            position: fixed;
             width: 120px;
             height: 120px;
-            pointer-events: auto;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
         }
         #joystickBase {
             width: 120px;
@@ -230,6 +236,37 @@
             transform: scale(1.05);
         }
         
+        /* Landscape Prompt */
+        #landscapePrompt {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            pointer-events: auto;
+        }
+        #landscapePrompt .rotate-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: rotateAnim 2s infinite;
+        }
+        #landscapePrompt .prompt-text {
+            font-size: 24px;
+            color: #fff;
+            text-align: center;
+            padding: 0 20px;
+        }
+        @keyframes rotateAnim {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+        }
+        
         /* Mobile Optimizations */
         @media (max-width: 768px) {
             #levelTitle { font-size: 32px; }
@@ -264,7 +301,13 @@
         </div>
     </div>
     
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <div id="landscapePrompt">
+        <div class="rotate-icon">📱↻</div>
+        <div class="prompt-text">请旋转手机至横屏模式以获得最佳游戏体验</div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         // Game Constants
         const GAME_CONSTANTS = {
@@ -368,11 +411,37 @@
         // Player
         const playerGroup = new THREE.Group();
         
-        const bodyGeometry = new THREE.CapsuleGeometry(0.4, 1.2, 8, 16);
+        // Body (replace CapsuleGeometry with Cylinder + Spheres)
+        const bodyGroup = new THREE.Group();
         const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x0066ff });
-        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        body.castShadow = true;
-        playerGroup.add(body);
+        
+        // Main body cylinder
+        const bodyCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.4, 1.2, 8),
+            bodyMaterial
+        );
+        bodyCylinder.castShadow = true;
+        bodyGroup.add(bodyCylinder);
+        
+        // Top hemisphere
+        const bodyTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.4, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+            bodyMaterial
+        );
+        bodyTopSphere.position.y = 0.6;
+        bodyTopSphere.castShadow = true;
+        bodyGroup.add(bodyTopSphere);
+        
+        // Bottom hemisphere
+        const bodyBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.4, 8, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            bodyMaterial
+        );
+        bodyBottomSphere.position.y = -0.6;
+        bodyBottomSphere.castShadow = true;
+        bodyGroup.add(bodyBottomSphere);
+        
+        playerGroup.add(bodyGroup);
         
         const headGeometry = new THREE.SphereGeometry(0.4, 16, 16);
         const headMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac });
@@ -381,29 +450,140 @@
         head.castShadow = true;
         playerGroup.add(head);
         
-        const armGeometry = new THREE.CapsuleGeometry(0.15, 0.8, 4, 8);
+        // Eyes
+        const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMaterial);
+        leftEye.position.set(-0.15, 1.3, 0.35);
+        playerGroup.add(leftEye);
+        
+        const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMaterial);
+        rightEye.position.set(0.15, 1.3, 0.35);
+        playerGroup.add(rightEye);
+        
+        // Hat/Hair
+        const hatMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const hat = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.4, 8), hatMaterial);
+        hat.position.set(0, 1.6, 0);
+        hat.castShadow = true;
+        playerGroup.add(hat);
+        
+        // Arms (replace CapsuleGeometry with Cylinder + Spheres)
         const armMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac });
-        const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-        leftArm.position.set(-0.5, 0.3, 0);
-        leftArm.castShadow = true;
-        playerGroup.add(leftArm);
         
-        const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-        rightArm.position.set(0.5, 0.3, 0);
-        rightArm.castShadow = true;
-        playerGroup.add(rightArm);
+        // Left arm
+        const leftArmGroup = new THREE.Group();
+        const leftArmCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.15, 0.15, 0.8, 4),
+            armMaterial
+        );
+        leftArmCylinder.castShadow = true;
+        leftArmGroup.add(leftArmCylinder);
         
-        const legGeometry = new THREE.CapsuleGeometry(0.2, 0.9, 4, 8);
+        const leftArmTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            armMaterial
+        );
+        leftArmTopSphere.position.y = 0.4;
+        leftArmTopSphere.castShadow = true;
+        leftArmGroup.add(leftArmTopSphere);
+        
+        const leftArmBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            armMaterial
+        );
+        leftArmBottomSphere.position.y = -0.4;
+        leftArmBottomSphere.castShadow = true;
+        leftArmGroup.add(leftArmBottomSphere);
+        
+        leftArmGroup.position.set(-0.5, 0.3, 0);
+        playerGroup.add(leftArmGroup);
+        
+        // Right arm
+        const rightArmGroup = new THREE.Group();
+        const rightArmCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.15, 0.15, 0.8, 4),
+            armMaterial
+        );
+        rightArmCylinder.castShadow = true;
+        rightArmGroup.add(rightArmCylinder);
+        
+        const rightArmTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            armMaterial
+        );
+        rightArmTopSphere.position.y = 0.4;
+        rightArmTopSphere.castShadow = true;
+        rightArmGroup.add(rightArmTopSphere);
+        
+        const rightArmBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            armMaterial
+        );
+        rightArmBottomSphere.position.y = -0.4;
+        rightArmBottomSphere.castShadow = true;
+        rightArmGroup.add(rightArmBottomSphere);
+        
+        rightArmGroup.position.set(0.5, 0.3, 0);
+        playerGroup.add(rightArmGroup);
+        
+        // Legs (replace CapsuleGeometry with Cylinder + Spheres)
         const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
-        leftLeg.position.set(-0.25, -1.05, 0);
-        leftLeg.castShadow = true;
-        playerGroup.add(leftLeg);
         
-        const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
-        rightLeg.position.set(0.25, -1.05, 0);
-        rightLeg.castShadow = true;
-        playerGroup.add(rightLeg);
+        // Left leg
+        const leftLegGroup = new THREE.Group();
+        const leftLegCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 0.9, 4),
+            legMaterial
+        );
+        leftLegCylinder.castShadow = true;
+        leftLegGroup.add(leftLegCylinder);
+        
+        const leftLegTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            legMaterial
+        );
+        leftLegTopSphere.position.y = 0.45;
+        leftLegTopSphere.castShadow = true;
+        leftLegGroup.add(leftLegTopSphere);
+        
+        const leftLegBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            legMaterial
+        );
+        leftLegBottomSphere.position.y = -0.45;
+        leftLegBottomSphere.castShadow = true;
+        leftLegGroup.add(leftLegBottomSphere);
+        
+        leftLegGroup.position.set(-0.25, -1.05, 0);
+        playerGroup.add(leftLegGroup);
+        
+        // Right leg
+        const rightLegGroup = new THREE.Group();
+        const rightLegCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 0.9, 4),
+            legMaterial
+        );
+        rightLegCylinder.castShadow = true;
+        rightLegGroup.add(rightLegCylinder);
+        
+        const rightLegTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            legMaterial
+        );
+        rightLegTopSphere.position.y = 0.45;
+        rightLegTopSphere.castShadow = true;
+        rightLegGroup.add(rightLegTopSphere);
+        
+        const rightLegBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            legMaterial
+        );
+        rightLegBottomSphere.position.y = -0.45;
+        rightLegBottomSphere.castShadow = true;
+        rightLegGroup.add(rightLegBottomSphere);
+        
+        rightLegGroup.position.set(0.25, -1.05, 0);
+        playerGroup.add(rightLegGroup);
         
         playerGroup.position.set(35, 1.5, 0);
         scene.add(playerGroup);
@@ -453,30 +633,43 @@
             if (e.key in keys) keys[e.key] = false;
         });
         
-        // Joystick
+        // Floating Joystick
+        const joystickElement = document.getElementById('joystick');
         const joystickBase = document.getElementById('joystickBase');
         const joystickStick = document.getElementById('joystickStick');
+        let joystickStartPos = { x: 0, y: 0 };
         
-        joystickBase.addEventListener('touchstart', handleJoystickStart);
-        joystickBase.addEventListener('touchmove', handleJoystickMove);
-        joystickBase.addEventListener('touchend', handleJoystickEnd);
+        // Listen for touches on left half of screen
+        document.addEventListener('touchstart', handleTouchStart, { passive: false });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd, { passive: false });
         
-        function handleJoystickStart(e) {
-            e.preventDefault();
-            joystick.active = true;
+        function handleTouchStart(e) {
+            const touch = e.touches[0];
+            const screenWidth = window.innerWidth;
+            
+            // Only activate joystick if touch is on left half of screen
+            if (touch.clientX < screenWidth / 2) {
+                e.preventDefault();
+                joystick.active = true;
+                
+                // Position joystick at touch location
+                joystickStartPos.x = touch.clientX;
+                joystickStartPos.y = touch.clientY;
+                joystickElement.style.left = (touch.clientX - 60) + 'px';
+                joystickElement.style.top = (touch.clientY - 60) + 'px';
+                joystickElement.style.display = 'block';
+            }
         }
         
-        function handleJoystickMove(e) {
-            e.preventDefault();
+        function handleTouchMove(e) {
             if (!joystick.active) return;
+            e.preventDefault();
             
             const touch = e.touches[0];
-            const rect = joystickBase.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
             
-            let deltaX = touch.clientX - centerX;
-            let deltaY = touch.clientY - centerY;
+            let deltaX = touch.clientX - joystickStartPos.x;
+            let deltaY = touch.clientY - joystickStartPos.y;
             
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
             const maxDistance = 35;
@@ -492,12 +685,15 @@
             joystick.y = -deltaY / maxDistance;
         }
         
-        function handleJoystickEnd(e) {
+        function handleTouchEnd(e) {
+            if (!joystick.active) return;
             e.preventDefault();
+            
             joystick.active = false;
             joystick.x = 0;
             joystick.y = 0;
             joystickStick.style.transform = 'translate(-50%, -50%)';
+            joystickElement.style.display = 'none';
         }
         
         // E Button
@@ -1354,7 +1550,25 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            checkOrientation();
         });
+        
+        // Landscape orientation check
+        function checkOrientation() {
+            const landscapePrompt = document.getElementById('landscapePrompt');
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isPortrait = window.innerHeight > window.innerWidth;
+            
+            if (isMobile && isPortrait) {
+                landscapePrompt.style.display = 'flex';
+            } else {
+                landscapePrompt.style.display = 'none';
+            }
+        }
+        
+        // Check orientation on load and orientation change
+        checkOrientation();
+        window.addEventListener('orientationchange', checkOrientation);
         
         // Start game
         updateLives();
