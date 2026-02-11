@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>拯救小马同学 - 6关冒险</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            overflow: hidden;
+            background: #000;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+        
+        /* UI Container */
+        #ui {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        /* Level Progress Bar */
+        #levelProgress {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+        .progress-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #444;
+            border: 2px solid #666;
+            transition: all 0.3s;
+        }
+        .progress-dot.current {
+            background: gold;
+            border-color: orange;
+            box-shadow: 0 0 10px gold;
+        }
+        .progress-dot.completed {
+            background: #0f0;
+            border-color: #0a0;
+        }
+        
+        /* Lives */
+        #lives {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 32px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        /* Level Title */
+        #levelTitle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: #fff;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.9);
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+        }
+        
+        /* Mission Text */
+        #missionText {
+            position: absolute;
+            top: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-size: 18px;
+            max-width: 80%;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        /* Timer Bar */
+        #timerBar {
+            position: absolute;
+            top: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 30px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #fff;
+            border-radius: 15px;
+            overflow: hidden;
+            display: none;
+        }
+        #timerFill {
+            height: 100%;
+            background: linear-gradient(90deg, #0f0, #ff0, #f00);
+            transition: width 0.1s linear;
+            width: 100%;
+        }
+        
+        /* Dialog Box */
+        #dialogBox {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            color: #fff;
+            padding: 20px 30px;
+            border-radius: 15px;
+            font-size: 20px;
+            max-width: 600px;
+            border: 3px solid gold;
+            display: none;
+        }
+        
+        /* Virtual Joystick */
+        #joystick {
+            position: fixed;
+            width: 120px;
+            height: 120px;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+        }
+        #joystickBase {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            border: 3px solid rgba(255,255,255,0.5);
+            position: relative;
+        }
+        #joystickStick {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.8);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s;
+        }
+        
+        /* E Button */
+        #eButton {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255,215,0,0.8);
+            border: 3px solid #fff;
+            font-size: 36px;
+            color: #000;
+            font-weight: bold;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        #eButton:active {
+            transform: scale(0.9);
+        }
+        
+        /* Game Over/Victory Screen */
+        #endScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        #endTitle {
+            font-size: 64px;
+            color: #fff;
+            margin-bottom: 30px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,1);
+        }
+        #endMessage {
+            font-size: 24px;
+            color: #ddd;
+            margin-bottom: 40px;
+        }
+        #restartButton {
+            padding: 15px 40px;
+            font-size: 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        #restartButton:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Landscape Prompt */
+        #landscapePrompt {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            pointer-events: auto;
+        }
+        #landscapePrompt .rotate-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: rotateAnim 2s infinite;
+        }
+        #landscapePrompt .prompt-text {
+            font-size: 24px;
+            color: #fff;
+            text-align: center;
+            padding: 0 20px;
+        }
+        @keyframes rotateAnim {
+            0%, 100% { transform: rotate(0deg); }
+            50% { transform: rotate(90deg); }
+        }
+        
+        /* Mobile Optimizations */
+        @media (max-width: 768px) {
+            #levelTitle { font-size: 32px; }
+            #missionText { font-size: 14px; }
+            #lives { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="levelProgress"></div>
+        <div id="lives">❤️❤️❤️</div>
+        <div id="levelTitle"></div>
+        <div id="missionText"></div>
+        <div id="timerBar">
+            <div id="timerFill"></div>
+        </div>
+        <div id="dialogBox"></div>
+        
+        <div id="joystick">
+            <div id="joystickBase">
+                <div id="joystickStick"></div>
+            </div>
+        </div>
+        
+        <div id="eButton">E</div>
+        
+        <div id="endScreen">
+            <div id="endTitle"></div>
+            <div id="endMessage"></div>
+            <button id="restartButton">重新开始</button>
+        </div>
+    </div>
+    
+    <div id="landscapePrompt">
+        <div class="rotate-icon">📱↻</div>
+        <div class="prompt-text">请旋转手机至横屏模式以获得最佳游戏体验</div>
+    </div>
+    
+    <!-- SimplexNoise library for advanced terrain generation (available for future enhancements) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/simplex-noise/2.4.0/simplex-noise.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Game Constants
+        const GAME_CONSTANTS = {
+            SPIRAL_STONE_COUNT: 28,
+            CROCODILE_WAVE_COUNTS: [4, 7, 10],
+            PLAYER_SPEED_NORMAL: 8,
+            PLAYER_SPEED_CARRYING: 5,
+            STONE_SINK_TIME: 3000,
+            STONE_DISAPPEAR_INTERVAL: 1.5
+        };
+        
+        // Game State
+        const gameState = {
+            currentLevel: 1,
+            lives: 3,
+            isPlaying: false,
+            carryingPony: false,
+            levelData: {
+                level1: { stones: [], activeStone: null },
+                level2: { platforms: [], sequence: [], playerSequence: [], round: 0 },
+                level3: { safezones: [], crocodiles: [], wave: 0, waveTimer: 0 },
+                level4: { runes: [], correctSequence: [], playerSequence: [] },
+                level5: { stones: [], startTime: 0, timeLimit: 25 },
+                level6: { obstacles: [], dodgeTimer: 0 }
+            }
+        };
+        
+        // Three.js Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 50, 150);
+        
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 30, 30);
+        camera.lookAt(0, 0, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(50, 50, 50);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.left = -60;
+        directionalLight.shadow.camera.right = 60;
+        directionalLight.shadow.camera.top = 60;
+        directionalLight.shadow.camera.bottom = -60;
+        scene.add(directionalLight);
+        
+        // Terrain
+        const lakeGeometry = new THREE.CircleGeometry(40, 64);
+        const lakeMaterial = new THREE.MeshStandardMaterial({ color: 0x1e90ff, roughness: 0.3, metalness: 0.2 });
+        const lake = new THREE.Mesh(lakeGeometry, lakeMaterial);
+        lake.rotation.x = -Math.PI / 2;
+        lake.position.y = -0.5;
+        lake.receiveShadow = true;
+        scene.add(lake);
+        
+        const islandGeometry = new THREE.CylinderGeometry(8, 8, 1, 32);
+        const islandMaterial = new THREE.MeshStandardMaterial({ color: 0x8b7355 });
+        const island = new THREE.Mesh(islandGeometry, islandMaterial);
+        island.position.set(0, 0, 0);
+        island.receiveShadow = true;
+        island.castShadow = true;
+        scene.add(island);
+        
+        const shoreGeometry = new THREE.CircleGeometry(5, 32);
+        const shoreMaterial = new THREE.MeshStandardMaterial({ color: 0xc2b280 });
+        const shore = new THREE.Mesh(shoreGeometry, shoreMaterial);
+        shore.rotation.x = -Math.PI / 2;
+        shore.position.set(35, 0.1, 0);
+        shore.receiveShadow = true;
+        scene.add(shore);
+        
+        const pavilionGroup = new THREE.Group();
+        const pavilionBase = new THREE.Mesh(
+            new THREE.CylinderGeometry(4, 4, 0.5, 6),
+            new THREE.MeshStandardMaterial({ color: 0x8b4513 })
+        );
+        pavilionBase.castShadow = true;
+        pavilionGroup.add(pavilionBase);
+        
+        const pavilionRoof = new THREE.Mesh(
+            new THREE.ConeGeometry(5, 3, 6),
+            new THREE.MeshStandardMaterial({ color: 0xff0000 })
+        );
+        pavilionRoof.position.y = 3;
+        pavilionRoof.castShadow = true;
+        pavilionGroup.add(pavilionRoof);
+        
+        pavilionGroup.position.set(50, 0.25, 0);
+        scene.add(pavilionGroup);
+        
+        // Player
+        const playerGroup = new THREE.Group();
+        
+        // Body (replace CapsuleGeometry with Cylinder + Spheres)
+        const bodyGroup = new THREE.Group();
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x0066ff });
+        
+        // Main body cylinder
+        const bodyCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.4, 0.4, 1.2, 8),
+            bodyMaterial
+        );
+        bodyCylinder.castShadow = true;
+        bodyGroup.add(bodyCylinder);
+        
+        // Top hemisphere
+        const bodyTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.4, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+            bodyMaterial
+        );
+        bodyTopSphere.position.y = 0.6;
+        bodyTopSphere.castShadow = true;
+        bodyGroup.add(bodyTopSphere);
+        
+        // Bottom hemisphere
+        const bodyBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.4, 8, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            bodyMaterial
+        );
+        bodyBottomSphere.position.y = -0.6;
+        bodyBottomSphere.castShadow = true;
+        bodyGroup.add(bodyBottomSphere);
+        
+        playerGroup.add(bodyGroup);
+        
+        const headGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+        const headMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+        const head = new THREE.Mesh(headGeometry, headMaterial);
+        head.position.y = 1.2;
+        head.castShadow = true;
+        playerGroup.add(head);
+        
+        // Eyes
+        const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMaterial);
+        leftEye.position.set(-0.15, 1.3, 0.35);
+        playerGroup.add(leftEye);
+        
+        const rightEye = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), eyeMaterial);
+        rightEye.position.set(0.15, 1.3, 0.35);
+        playerGroup.add(rightEye);
+        
+        // Hat/Hair
+        const hatMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        const hat = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.4, 8), hatMaterial);
+        hat.position.set(0, 1.6, 0);
+        hat.castShadow = true;
+        playerGroup.add(hat);
+        
+        // Arms (replace CapsuleGeometry with Cylinder + Spheres)
+        const armMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+        
+        // Left arm
+        const leftArmGroup = new THREE.Group();
+        const leftArmCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.15, 0.15, 0.8, 4),
+            armMaterial
+        );
+        leftArmCylinder.castShadow = true;
+        leftArmGroup.add(leftArmCylinder);
+        
+        const leftArmTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            armMaterial
+        );
+        leftArmTopSphere.position.y = 0.4;
+        leftArmTopSphere.castShadow = true;
+        leftArmGroup.add(leftArmTopSphere);
+        
+        const leftArmBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            armMaterial
+        );
+        leftArmBottomSphere.position.y = -0.4;
+        leftArmBottomSphere.castShadow = true;
+        leftArmGroup.add(leftArmBottomSphere);
+        
+        leftArmGroup.position.set(-0.5, 0.3, 0);
+        playerGroup.add(leftArmGroup);
+        
+        // Right arm
+        const rightArmGroup = new THREE.Group();
+        const rightArmCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.15, 0.15, 0.8, 4),
+            armMaterial
+        );
+        rightArmCylinder.castShadow = true;
+        rightArmGroup.add(rightArmCylinder);
+        
+        const rightArmTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            armMaterial
+        );
+        rightArmTopSphere.position.y = 0.4;
+        rightArmTopSphere.castShadow = true;
+        rightArmGroup.add(rightArmTopSphere);
+        
+        const rightArmBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.15, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            armMaterial
+        );
+        rightArmBottomSphere.position.y = -0.4;
+        rightArmBottomSphere.castShadow = true;
+        rightArmGroup.add(rightArmBottomSphere);
+        
+        rightArmGroup.position.set(0.5, 0.3, 0);
+        playerGroup.add(rightArmGroup);
+        
+        // Legs (replace CapsuleGeometry with Cylinder + Spheres)
+        const legMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+        
+        // Left leg
+        const leftLegGroup = new THREE.Group();
+        const leftLegCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 0.9, 4),
+            legMaterial
+        );
+        leftLegCylinder.castShadow = true;
+        leftLegGroup.add(leftLegCylinder);
+        
+        const leftLegTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            legMaterial
+        );
+        leftLegTopSphere.position.y = 0.45;
+        leftLegTopSphere.castShadow = true;
+        leftLegGroup.add(leftLegTopSphere);
+        
+        const leftLegBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            legMaterial
+        );
+        leftLegBottomSphere.position.y = -0.45;
+        leftLegBottomSphere.castShadow = true;
+        leftLegGroup.add(leftLegBottomSphere);
+        
+        leftLegGroup.position.set(-0.25, -1.05, 0);
+        playerGroup.add(leftLegGroup);
+        
+        // Right leg
+        const rightLegGroup = new THREE.Group();
+        const rightLegCylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 0.9, 4),
+            legMaterial
+        );
+        rightLegCylinder.castShadow = true;
+        rightLegGroup.add(rightLegCylinder);
+        
+        const rightLegTopSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+            legMaterial
+        );
+        rightLegTopSphere.position.y = 0.45;
+        rightLegTopSphere.castShadow = true;
+        rightLegGroup.add(rightLegTopSphere);
+        
+        const rightLegBottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 4, 4, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            legMaterial
+        );
+        rightLegBottomSphere.position.y = -0.45;
+        rightLegBottomSphere.castShadow = true;
+        rightLegGroup.add(rightLegBottomSphere);
+        
+        rightLegGroup.position.set(0.25, -1.05, 0);
+        playerGroup.add(rightLegGroup);
+        
+        playerGroup.position.set(35, 1.5, 0);
+        scene.add(playerGroup);
+        
+        // Pony NPC
+        const ponyGroup = new THREE.Group();
+        
+        const ponyBodyGeometry = new THREE.BoxGeometry(1, 0.6, 0.5);
+        const ponyBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffc0cb });
+        const ponyBody = new THREE.Mesh(ponyBodyGeometry, ponyBodyMaterial);
+        ponyBody.castShadow = true;
+        ponyGroup.add(ponyBody);
+        
+        const ponyHeadGeometry = new THREE.SphereGeometry(0.35, 16, 16);
+        const ponyHead = new THREE.Mesh(ponyHeadGeometry, ponyBodyMaterial);
+        ponyHead.position.set(0.6, 0.2, 0);
+        ponyHead.castShadow = true;
+        ponyGroup.add(ponyHead);
+        
+        for (let i = 0; i < 4; i++) {
+            const leg = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.1, 0.1, 0.6, 8),
+                ponyBodyMaterial
+            );
+            const x = (i % 2) * 0.6 - 0.3;
+            const z = Math.floor(i / 2) * 0.3 - 0.15;
+            leg.position.set(x, -0.6, z);
+            leg.castShadow = true;
+            ponyGroup.add(leg);
+        }
+        
+        ponyGroup.position.set(0, 1.3, 0);
+        ponyGroup.visible = false;
+        scene.add(ponyGroup);
+        
+        // Controls
+        const keys = { w: false, a: false, s: false, d: false, e: false, ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+        const joystick = { active: false, x: 0, y: 0 };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+            if (e.key in keys) keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+            if (e.key in keys) keys[e.key] = false;
+        });
+        
+        // Floating Joystick
+        const joystickElement = document.getElementById('joystick');
+        const joystickBase = document.getElementById('joystickBase');
+        const joystickStick = document.getElementById('joystickStick');
+        let joystickStartPos = { x: 0, y: 0 };
+        
+        // Listen for touches on left half of screen for floating joystick
+        // Note: passive: false is required for preventDefault() to work and prevent page scrolling
+        document.addEventListener('touchstart', handleTouchStart, { passive: false });
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd, { passive: false });
+        
+        function handleTouchStart(e) {
+            const touch = e.touches[0];
+            const screenWidth = window.innerWidth;
+            
+            // Only activate joystick if touch is on left half of screen
+            if (touch.clientX < screenWidth / 2) {
+                e.preventDefault();
+                joystick.active = true;
+                
+                // Position joystick at touch location
+                joystickStartPos.x = touch.clientX;
+                joystickStartPos.y = touch.clientY;
+                joystickElement.style.left = (touch.clientX - 60) + 'px';
+                joystickElement.style.top = (touch.clientY - 60) + 'px';
+                joystickElement.style.display = 'block';
+            }
+        }
+        
+        function handleTouchMove(e) {
+            if (!joystick.active) return;
+            e.preventDefault();
+            
+            const touch = e.touches[0];
+            
+            let deltaX = touch.clientX - joystickStartPos.x;
+            let deltaY = touch.clientY - joystickStartPos.y;
+            
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = 35;
+            
+            if (distance > maxDistance) {
+                deltaX = (deltaX / distance) * maxDistance;
+                deltaY = (deltaY / distance) * maxDistance;
+            }
+            
+            joystickStick.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+            
+            joystick.x = deltaX / maxDistance;
+            joystick.y = -deltaY / maxDistance;
+        }
+        
+        function handleTouchEnd(e) {
+            if (!joystick.active) return;
+            e.preventDefault();
+            
+            joystick.active = false;
+            joystick.x = 0;
+            joystick.y = 0;
+            joystickStick.style.transform = 'translate(-50%, -50%)';
+            joystickElement.style.display = 'none';
+        }
+        
+        // E Button
+        document.getElementById('eButton').addEventListener('click', () => {
+            keys.e = true;
+            setTimeout(() => keys.e = false, 100);
+        });
+        
+        // UI Functions
+        function updateLives() {
+            const hearts = '❤️'.repeat(gameState.lives) + '🖤'.repeat(3 - gameState.lives);
+            document.getElementById('lives').textContent = hearts;
+        }
+        
+        function updateLevelProgress() {
+            const progressDiv = document.getElementById('levelProgress');
+            progressDiv.innerHTML = '';
+            for (let i = 1; i <= 6; i++) {
+                const dot = document.createElement('div');
+                dot.className = 'progress-dot';
+                if (i === gameState.currentLevel) dot.classList.add('current');
+                else if (i < gameState.currentLevel) dot.classList.add('completed');
+                progressDiv.appendChild(dot);
+            }
+        }
+        
+        function showLevelTitle(title) {
+            const titleDiv = document.getElementById('levelTitle');
+            titleDiv.textContent = title;
+            titleDiv.style.opacity = '1';
+            setTimeout(() => {
+                titleDiv.style.opacity = '0';
+            }, 2500);
+        }
+        
+        function showMission(text) {
+            const missionDiv = document.getElementById('missionText');
+            missionDiv.textContent = text;
+            missionDiv.style.opacity = '1';
+        }
+        
+        function hideMission() {
+            document.getElementById('missionText').style.opacity = '0';
+        }
+        
+        function showDialog(text) {
+            const dialogBox = document.getElementById('dialogBox');
+            dialogBox.textContent = text;
+            dialogBox.style.display = 'block';
+            setTimeout(() => {
+                dialogBox.style.display = 'none';
+            }, 3000);
+        }
+        
+        function showTimer() {
+            document.getElementById('timerBar').style.display = 'block';
+        }
+        
+        function hideTimer() {
+            document.getElementById('timerBar').style.display = 'none';
+        }
+        
+        function updateTimer(percentage) {
+            document.getElementById('timerFill').style.width = percentage + '%';
+        }
+        
+        function showEButton() {
+            document.getElementById('eButton').style.display = 'flex';
+        }
+        
+        function hideEButton() {
+            document.getElementById('eButton').style.display = 'none';
+        }
+        
+        function loseLife() {
+            gameState.lives--;
+            updateLives();
+            
+            if (gameState.lives <= 0) {
+                gameOver();
+            } else {
+                restartLevel();
+            }
+        }
+        
+        function gameOver() {
+            gameState.isPlaying = false;
+            document.getElementById('endTitle').textContent = '游戏结束';
+            document.getElementById('endMessage').textContent = '你已经用完所有生命...';
+            document.getElementById('endScreen').style.display = 'flex';
+        }
+        
+        function victory() {
+            gameState.isPlaying = false;
+            document.getElementById('endTitle').textContent = '胜利！';
+            document.getElementById('endMessage').textContent = '你成功拯救了小马同学！';
+            document.getElementById('endScreen').style.display = 'flex';
+        }
+        
+        document.getElementById('restartButton').addEventListener('click', () => {
+            gameState.currentLevel = 1;
+            gameState.lives = 3;
+            gameState.carryingPony = false;
+            document.getElementById('endScreen').style.display = 'none';
+            updateLives();
+            startLevel(1);
+        });
+        
+        // Level Functions
+        function clearLevel() {
+            // Clear all level objects
+            const objectsToRemove = [];
+            scene.traverse((obj) => {
+                if (obj.userData.levelObject) {
+                    objectsToRemove.push(obj);
+                }
+            });
+            objectsToRemove.forEach(obj => scene.remove(obj));
+            
+            // Reset level data
+            for (let key in gameState.levelData) {
+                if (gameState.levelData[key].stones) gameState.levelData[key].stones = [];
+                if (gameState.levelData[key].platforms) gameState.levelData[key].platforms = [];
+                if (gameState.levelData[key].crocodiles) gameState.levelData[key].crocodiles = [];
+                if (gameState.levelData[key].runes) gameState.levelData[key].runes = [];
+                if (gameState.levelData[key].obstacles) gameState.levelData[key].obstacles = [];
+            }
+            
+            hideTimer();
+            hideEButton();
+            hideMission();
+        }
+        
+        function restartLevel() {
+            clearLevel();
+            startLevel(gameState.currentLevel);
+        }
+        
+        function startLevel(level) {
+            clearLevel();
+            gameState.currentLevel = level;
+            gameState.isPlaying = true;
+            updateLevelProgress();
+            
+            switch (level) {
+                case 1: startLevel1(); break;
+                case 2: startLevel2(); break;
+                case 3: startLevel3(); break;
+                case 4: startLevel4(); break;
+                case 5: startLevel5(); break;
+                case 6: startLevel6(); break;
+            }
+        }
+        
+        // Level 1: Spiral Jumping Stones
+        function startLevel1() {
+            showLevelTitle('第一关：螺旋跳石');
+            showMission('踩着石头到达岛上！石头3秒后会下沉！');
+            
+            playerGroup.position.set(35, 1.5, 0);
+            ponyGroup.visible = false;
+            
+            const data = gameState.levelData.level1;
+            data.stones = [];
+            
+            const stoneCount = GAME_CONSTANTS.SPIRAL_STONE_COUNT;
+            const spirals = 1.75;
+            
+            for (let i = 0; i < stoneCount; i++) {
+                const t = i / stoneCount;
+                const angle = t * spirals * Math.PI * 2;
+                const radius = 35 - (t * 27);
+                
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                
+                const stoneGeometry = new THREE.CylinderGeometry(1.2, 1.2, 0.4, 16);
+                const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
+                const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
+                stone.position.set(x, 0.2, z);
+                stone.castShadow = true;
+                stone.userData.levelObject = true;
+                stone.userData.steppedTime = 0;
+                stone.userData.active = true;
+                scene.add(stone);
+                
+                data.stones.push(stone);
+            }
+        }
+        
+        function updateLevel1(deltaTime) {
+            const data = gameState.levelData.level1;
+            const playerPos = playerGroup.position;
+            
+            // Check stone collision
+            for (let stone of data.stones) {
+                if (!stone.userData.active) continue;
+                
+                const dist = Math.sqrt(
+                    Math.pow(playerPos.x - stone.position.x, 2) +
+                    Math.pow(playerPos.z - stone.position.z, 2)
+                );
+                
+                if (dist < 1.5 && Math.abs(playerPos.y - stone.position.y) < 1) {
+                    if (stone.userData.steppedTime === 0) {
+                        stone.userData.steppedTime = Date.now();
+                    }
+                    
+                    const elapsed = (Date.now() - stone.userData.steppedTime) / 1000;
+                    if (elapsed > 3) {
+                        stone.userData.active = false;
+                        stone.position.y = -2;
+                    }
+                }
+            }
+            
+            // Check if reached island
+            const distToIsland = Math.sqrt(playerPos.x * playerPos.x + playerPos.z * playerPos.z);
+            if (distToIsland < 8) {
+                completeLevel();
+            }
+            
+            // Check if in water
+            if (playerPos.y < -1) {
+                loseLife();
+            }
+        }
+        
+        // Level 2: Memory Maze
+        function startLevel2() {
+            showLevelTitle('第二关：记忆迷宫');
+            showMission('记住顺序并按顺序踩平台！');
+            
+            playerGroup.position.set(0, 1.5, 0);
+            ponyGroup.visible = false;
+            
+            const data = gameState.levelData.level2;
+            data.platforms = [];
+            data.sequence = [];
+            data.playerSequence = [];
+            data.round = 1;
+            
+            for (let i = 0; i < 9; i++) {
+                const angle = (i / 9) * Math.PI * 2;
+                const radius = 6;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                
+                const platform = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1, 1, 0.3, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x888888 })
+                );
+                platform.position.set(x, 0.65, z);
+                platform.castShadow = true;
+                platform.userData.levelObject = true;
+                platform.userData.number = i + 1;
+                scene.add(platform);
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(i + 1, 32, 32);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const label = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.8, 0.8),
+                    new THREE.MeshBasicMaterial({ map: texture, transparent: true })
+                );
+                label.rotation.x = -Math.PI / 2;
+                label.position.set(x, 0.85, z);
+                label.userData.levelObject = true;
+                scene.add(label);
+                
+                data.platforms.push(platform);
+            }
+            
+            generateSequence();
+        }
+        
+        function generateSequence() {
+            const data = gameState.levelData.level2;
+            data.sequence = [];
+            data.playerSequence = [];
+            
+            const length = 3 + data.round;
+            for (let i = 0; i < length; i++) {
+                data.sequence.push(Math.floor(Math.random() * 9));
+            }
+            
+            showSequence();
+        }
+        
+        function showSequence() {
+            const data = gameState.levelData.level2;
+            
+            let i = 0;
+            const interval = setInterval(() => {
+                if (i > 0) {
+                    data.platforms[data.sequence[i - 1]].material.color.setHex(0x888888);
+                }
+                
+                if (i < data.sequence.length) {
+                    data.platforms[data.sequence[i]].material.color.setHex(0xffff00);
+                    i++;
+                } else {
+                    clearInterval(interval);
+                    data.platforms[data.sequence[i - 1]].material.color.setHex(0x888888);
+                }
+            }, 800);
+        }
+        
+        function updateLevel2(deltaTime) {
+            const data = gameState.levelData.level2;
+            const playerPos = playerGroup.position;
+            
+            for (let i = 0; i < data.platforms.length; i++) {
+                const platform = data.platforms[i];
+                const dist = Math.sqrt(
+                    Math.pow(playerPos.x - platform.position.x, 2) +
+                    Math.pow(playerPos.z - platform.position.z, 2)
+                );
+                
+                if (dist < 1.5 && !platform.userData.stepped) {
+                    platform.userData.stepped = true;
+                    data.playerSequence.push(i);
+                    
+                    if (data.playerSequence.length <= data.sequence.length) {
+                        const correctIndex = data.playerSequence.length - 1;
+                        if (data.playerSequence[correctIndex] === data.sequence[correctIndex]) {
+                            platform.material.color.setHex(0x00ff00);
+                            
+                            if (data.playerSequence.length === data.sequence.length) {
+                                if (data.round < 3) {
+                                    setTimeout(() => {
+                                        data.round++;
+                                        data.platforms.forEach(p => {
+                                            p.material.color.setHex(0x888888);
+                                            p.userData.stepped = false;
+                                        });
+                                        generateSequence();
+                                    }, 1000);
+                                } else {
+                                    completeLevel();
+                                }
+                            }
+                        } else {
+                            platform.material.color.setHex(0xff0000);
+                            setTimeout(() => {
+                                loseLife();
+                            }, 500);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Level 3: Crocodile Waves
+        function startLevel3() {
+            showLevelTitle('第三关：鳄鱼浪潮');
+            showMission('躲到绿色安全区！红色鳄鱼即将来袭！');
+            
+            playerGroup.position.set(0, 1.5, 0);
+            ponyGroup.visible = false;
+            
+            const data = gameState.levelData.level3;
+            data.safezones = [];
+            data.crocodiles = [];
+            data.wave = 0;
+            data.waveTimer = 0;
+            
+            // Create 3 safe zones
+            for (let i = 0; i < 3; i++) {
+                const angle = (i / 3) * Math.PI * 2;
+                const radius = 5;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                
+                const safezone = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.5, 1.5, 0.2, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x00ff00, emissiveIntensity: 0.3 })
+                );
+                safezone.position.set(x, 0.6, z);
+                safezone.userData.levelObject = true;
+                scene.add(safezone);
+                
+                data.safezones.push(safezone);
+            }
+            
+            showTimer();
+            startWave();
+        }
+        
+        function startWave() {
+            const data = gameState.levelData.level3;
+            data.wave++;
+            data.waveTimer = 2;
+            
+            const counts = GAME_CONSTANTS.CROCODILE_WAVE_COUNTS;
+            const count = counts[data.wave - 1];
+            
+            setTimeout(() => {
+                for (let i = 0; i < count; i++) {
+                    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+                    const radius = 3 + Math.random() * 4;
+                    const x = Math.cos(angle) * radius;
+                    const z = Math.sin(angle) * radius;
+                    
+                    const crocodile = new THREE.Mesh(
+                        new THREE.BoxGeometry(1.5, 0.5, 0.8),
+                        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+                    );
+                    crocodile.position.set(x, 0.75, z);
+                    crocodile.castShadow = true;
+                    crocodile.userData.levelObject = true;
+                    crocodile.userData.speed = 0.5 + Math.random() * 0.5;
+                    crocodile.userData.angle = Math.random() * Math.PI * 2;
+                    scene.add(crocodile);
+                    
+                    data.crocodiles.push(crocodile);
+                }
+            }, 2000);
+        }
+        
+        function updateLevel3(deltaTime) {
+            const data = gameState.levelData.level3;
+            const playerPos = playerGroup.position;
+            
+            if (data.waveTimer > 0) {
+                data.waveTimer -= deltaTime;
+                updateTimer((data.waveTimer / 2) * 100);
+            }
+            
+            // Move crocodiles
+            for (let croc of data.crocodiles) {
+                croc.userData.angle += deltaTime * 0.5;
+                croc.position.x += Math.cos(croc.userData.angle) * croc.userData.speed * deltaTime;
+                croc.position.z += Math.sin(croc.userData.angle) * croc.userData.speed * deltaTime;
+                
+                const distFromCenter = Math.sqrt(croc.position.x ** 2 + croc.position.z ** 2);
+                if (distFromCenter > 7) {
+                    croc.userData.angle += Math.PI;
+                }
+            }
+            
+            // Check if player in safe zone
+            let inSafeZone = false;
+            for (let zone of data.safezones) {
+                const dist = Math.sqrt(
+                    Math.pow(playerPos.x - zone.position.x, 2) +
+                    Math.pow(playerPos.z - zone.position.z, 2)
+                );
+                if (dist < 1.5) {
+                    inSafeZone = true;
+                    break;
+                }
+            }
+            
+            // Check crocodile collision
+            if (!inSafeZone) {
+                for (let croc of data.crocodiles) {
+                    const dist = Math.sqrt(
+                        Math.pow(playerPos.x - croc.position.x, 2) +
+                        Math.pow(playerPos.z - croc.position.z, 2)
+                    );
+                    if (dist < 1.5) {
+                        loseLife();
+                        return;
+                    }
+                }
+            }
+            
+            // Check wave completion
+            if (data.crocodiles.length > 0 && data.waveTimer <= 0) {
+                const elapsed = Date.now() - (data.waveStartTime || Date.now());
+                if (elapsed > 5000) {
+                    data.crocodiles.forEach(c => scene.remove(c));
+                    data.crocodiles = [];
+                    
+                    if (data.wave < 3) {
+                        startWave();
+                    } else {
+                        hideTimer();
+                        completeLevel();
+                    }
+                }
+            }
+            
+            if (data.crocodiles.length > 0 && !data.waveStartTime) {
+                data.waveStartTime = Date.now();
+            }
+        }
+        
+        // Level 4: Rune Unlock
+        function startLevel4() {
+            showLevelTitle('第四关：符文解锁');
+            showMission('按正确顺序激活符文（按E键）救出小马！');
+            
+            playerGroup.position.set(0, 1.5, 0);
+            ponyGroup.visible = true;
+            ponyGroup.position.set(0, 1.3, 3);
+            
+            const data = gameState.levelData.level4;
+            data.runes = [];
+            data.correctSequence = [0, 1, 2, 3, 4];
+            data.playerSequence = [];
+            
+            // Shuffle correct sequence
+            for (let i = data.correctSequence.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [data.correctSequence[i], data.correctSequence[j]] = [data.correctSequence[j], data.correctSequence[i]];
+            }
+            
+            const symbols = ['☀', '☽', '★', '⚡', '❤'];
+            
+            for (let i = 0; i < 5; i++) {
+                const angle = (i / 5) * Math.PI * 2;
+                const radius = 6;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                
+                const rune = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.8, 0.8, 0.5, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x444444 })
+                );
+                rune.position.set(x, 0.75, z);
+                rune.castShadow = true;
+                rune.userData.levelObject = true;
+                rune.userData.index = i;
+                rune.userData.activated = false;
+                scene.add(rune);
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffff00';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(symbols[i], 32, 32);
+                
+                const texture = new THREE.CanvasTexture(canvas);
+                const label = new THREE.Mesh(
+                    new THREE.PlaneGeometry(1, 1),
+                    new THREE.MeshBasicMaterial({ map: texture, transparent: true })
+                );
+                label.rotation.x = -Math.PI / 2;
+                label.position.set(x, 1.05, z);
+                label.userData.levelObject = true;
+                scene.add(label);
+                
+                data.runes.push(rune);
+            }
+            
+            showEButton();
+        }
+        
+        function updateLevel4(deltaTime) {
+            const data = gameState.levelData.level4;
+            const playerPos = playerGroup.position;
+            
+            let nearRune = null;
+            for (let rune of data.runes) {
+                const dist = Math.sqrt(
+                    Math.pow(playerPos.x - rune.position.x, 2) +
+                    Math.pow(playerPos.z - rune.position.z, 2)
+                );
+                if (dist < 2) {
+                    nearRune = rune;
+                    break;
+                }
+            }
+            
+            if (keys.e && nearRune && !nearRune.userData.activated) {
+                keys.e = false;
+                nearRune.userData.activated = true;
+                data.playerSequence.push(nearRune.userData.index);
+                
+                const expectedIndex = data.playerSequence.length - 1;
+                if (data.playerSequence[expectedIndex] === data.correctSequence[expectedIndex]) {
+                    nearRune.material.color.setHex(0x00ff00);
+                    nearRune.material.emissive.setHex(0x00ff00);
+                    nearRune.material.emissiveIntensity = 0.5;
+                    
+                    if (data.playerSequence.length === 5) {
+                        hideEButton();
+                        showDialog('谢谢你救了我！我们一起回家吧！');
+                        gameState.carryingPony = true;
+                        setTimeout(() => {
+                            completeLevel();
+                        }, 3000);
+                    }
+                } else {
+                    nearRune.material.color.setHex(0xff0000);
+                    setTimeout(() => {
+                        loseLife();
+                    }, 500);
+                }
+            }
+        }
+        
+        // Level 5: Spiral Escape
+        function startLevel5() {
+            showLevelTitle('第五关：螺旋逃离');
+            showMission('带着小马快速逃离！石头会消失！');
+            
+            playerGroup.position.set(0, 1.5, 0);
+            ponyGroup.visible = true;
+            ponyGroup.position.copy(playerGroup.position);
+            ponyGroup.position.y = 2;
+            
+            const data = gameState.levelData.level5;
+            data.stones = [];
+            data.startTime = Date.now();
+            data.timeLimit = 25;
+            
+            const stoneCount = GAME_CONSTANTS.SPIRAL_STONE_COUNT;
+            const spirals = 1.75;
+            
+            for (let i = 0; i < stoneCount; i++) {
+                const t = i / stoneCount;
+                const angle = t * spirals * Math.PI * 2;
+                const radius = 8 + (t * 27);
+                
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                
+                const stone = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1.2, 1.2, 0.4, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x808080 })
+                );
+                stone.position.set(x, 0.2, z);
+                stone.castShadow = true;
+                stone.userData.levelObject = true;
+                stone.userData.disappearTime = Date.now() + (i * 1500);
+                scene.add(stone);
+                
+                data.stones.push(stone);
+            }
+            
+            showTimer();
+        }
+        
+        function updateLevel5(deltaTime) {
+            const data = gameState.levelData.level5;
+            const elapsed = (Date.now() - data.startTime) / 1000;
+            const remaining = data.timeLimit - elapsed;
+            
+            updateTimer((remaining / data.timeLimit) * 100);
+            
+            if (remaining <= 0) {
+                loseLife();
+                return;
+            }
+            
+            // Remove stones
+            for (let stone of data.stones) {
+                if (Date.now() > stone.userData.disappearTime && stone.visible) {
+                    stone.visible = false;
+                    stone.position.y = -10;
+                }
+            }
+            
+            // Check if reached shore
+            const playerPos = playerGroup.position;
+            const distToShore = Math.sqrt(
+                Math.pow(playerPos.x - 35, 2) +
+                Math.pow(playerPos.z, 2)
+            );
+            
+            if (distToShore < 5) {
+                hideTimer();
+                completeLevel();
+            }
+            
+            // Check if in water
+            if (playerPos.y < -1) {
+                loseLife();
+            }
+        }
+        
+        // Level 6: Home Sprint
+        function startLevel6() {
+            showLevelTitle('第六关：冲刺回家');
+            showMission('躲避石头，跑到亭子！按E键完成游戏！');
+            
+            playerGroup.position.set(35, 1.5, 0);
+            ponyGroup.visible = true;
+            ponyGroup.position.copy(playerGroup.position);
+            ponyGroup.position.y = 2;
+            
+            const data = gameState.levelData.level6;
+            data.obstacles = [];
+            data.dodgeTimer = 0;
+        }
+        
+        function updateLevel6(deltaTime) {
+            const data = gameState.levelData.level6;
+            const playerPos = playerGroup.position;
+            
+            data.dodgeTimer += deltaTime;
+            
+            if (data.dodgeTimer > 2) {
+                data.dodgeTimer = 0;
+                
+                const obstacle = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.8, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x8b4513 })
+                );
+                obstacle.position.set(50, 1, (Math.random() - 0.5) * 8);
+                obstacle.castShadow = true;
+                obstacle.userData.levelObject = true;
+                obstacle.userData.velocity = -8;
+                scene.add(obstacle);
+                
+                data.obstacles.push(obstacle);
+            }
+            
+            // Move obstacles
+            for (let i = data.obstacles.length - 1; i >= 0; i--) {
+                const obs = data.obstacles[i];
+                obs.position.x += obs.userData.velocity * deltaTime;
+                
+                const dist = Math.sqrt(
+                    Math.pow(playerPos.x - obs.position.x, 2) +
+                    Math.pow(playerPos.z - obs.position.z, 2)
+                );
+                
+                if (dist < 1.5) {
+                    loseLife();
+                    return;
+                }
+                
+                if (obs.position.x < 30) {
+                    scene.remove(obs);
+                    data.obstacles.splice(i, 1);
+                }
+            }
+            
+            // Check if reached pavilion
+            const distToPavilion = Math.sqrt(
+                Math.pow(playerPos.x - 50, 2) +
+                Math.pow(playerPos.z, 2)
+            );
+            
+            if (distToPavilion < 5) {
+                showEButton();
+                if (keys.e) {
+                    keys.e = false;
+                    hideEButton();
+                    victory();
+                }
+            }
+        }
+        
+        function completeLevel() {
+            if (gameState.currentLevel < 6) {
+                gameState.currentLevel++;
+                setTimeout(() => {
+                    startLevel(gameState.currentLevel);
+                }, 1000);
+            }
+        }
+        
+        // Animation
+        let lastTime = Date.now();
+        let walkCycle = 0;
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const currentTime = Date.now();
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            if (!gameState.isPlaying) {
+                renderer.render(scene, camera);
+                return;
+            }
+            
+            // Player movement
+            let moveX = 0;
+            let moveZ = 0;
+            
+            if (keys.w || keys.ArrowUp) moveZ -= 1;
+            if (keys.s || keys.ArrowDown) moveZ += 1;
+            if (keys.a || keys.ArrowLeft) moveX -= 1;
+            if (keys.d || keys.ArrowRight) moveX += 1;
+            
+            if (joystick.active) {
+                moveX += joystick.x;
+                moveZ += joystick.y;
+            }
+            
+            const speed = gameState.carryingPony ? GAME_CONSTANTS.PLAYER_SPEED_CARRYING : GAME_CONSTANTS.PLAYER_SPEED_NORMAL;
+            const moveLength = Math.sqrt(moveX * moveX + moveZ * moveZ);
+            
+            if (moveLength > 0) {
+                moveX = (moveX / moveLength) * speed * deltaTime;
+                moveZ = (moveZ / moveLength) * speed * deltaTime;
+                
+                playerGroup.position.x += moveX;
+                playerGroup.position.z += moveZ;
+                
+                const angle = Math.atan2(moveX, moveZ);
+                playerGroup.rotation.y = angle;
+                
+                // Walking animation
+                walkCycle += deltaTime * 10;
+                const leftArm = playerGroup.children[2];
+                const rightArm = playerGroup.children[3];
+                const leftLeg = playerGroup.children[4];
+                const rightLeg = playerGroup.children[5];
+                
+                leftArm.rotation.x = Math.sin(walkCycle) * 0.5;
+                rightArm.rotation.x = Math.sin(walkCycle + Math.PI) * 0.5;
+                leftLeg.rotation.x = Math.sin(walkCycle + Math.PI) * 0.3;
+                rightLeg.rotation.x = Math.sin(walkCycle) * 0.3;
+            }
+            
+            // Pony follows player when carrying
+            if (gameState.carryingPony && ponyGroup.visible) {
+                ponyGroup.position.copy(playerGroup.position);
+                ponyGroup.position.y = playerGroup.position.y + 0.8;
+                ponyGroup.rotation.y = playerGroup.rotation.y;
+            }
+            
+            // Camera follow
+            camera.position.x = playerGroup.position.x * 0.8;
+            camera.position.z = playerGroup.position.z * 0.8 + 20;
+            camera.position.y = 25;
+            camera.lookAt(playerGroup.position);
+            
+            // Update current level
+            switch (gameState.currentLevel) {
+                case 1: updateLevel1(deltaTime); break;
+                case 2: updateLevel2(deltaTime); break;
+                case 3: updateLevel3(deltaTime); break;
+                case 4: updateLevel4(deltaTime); break;
+                case 5: updateLevel5(deltaTime); break;
+                case 6: updateLevel6(deltaTime); break;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            checkOrientation();
+        });
+        
+        // Landscape orientation check
+        function checkOrientation() {
+            const landscapePrompt = document.getElementById('landscapePrompt');
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isPortrait = window.innerHeight > window.innerWidth;
+            
+            if (isMobile && isPortrait) {
+                landscapePrompt.style.display = 'flex';
+            } else {
+                landscapePrompt.style.display = 'none';
+            }
+        }
+        
+        // Check orientation on load and orientation change
+        checkOrientation();
+        window.addEventListener('resize', checkOrientation);
+        if (screen.orientation) {
+            screen.orientation.addEventListener('change', checkOrientation);
+        }
+        
+        // Start game
+        updateLives();
+        updateLevelProgress();
+        startLevel(1);
+        animate();
+    </script>
+</body>
+</html>
